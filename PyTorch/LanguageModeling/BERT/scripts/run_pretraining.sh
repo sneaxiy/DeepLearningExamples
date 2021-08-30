@@ -126,12 +126,7 @@ CMD+=" $INIT_CHECKPOINT"
 CMD+=" --do_train"
 CMD+=" --json-summary ${RESULTS_DIR}/dllogger.json "
 
-MASTER_ADDR=`echo $PADDLE_TRAINER_ENDPOINTS | awk -F',' '{print $1}' | awk -F':' '{print $1}'`
-MASTER_PORT=`echo $PADDLE_TRAINER_ENDPOINTS | awk -F',' '{print $1}' | awk -F':' '{print $2}'`
-NUM_NODES=`echo $PADDLE_TRAINER_ENDPOINTS | tr ',' '\n' | wc -l`
-NODE_RANK=$PADDLE_TRAINER_ID
-
-CMD="python3 -m torch.distributed.launch --nproc_per_node=$num_gpus --nnodes=$NUM_NODES --node_rank=$NODE_RANK --master_addr $MASTER_ADDR --master_port $MASTER_PORT $CMD"
+CMD="python3 -m torch.distributed.launch --nproc_per_node=$num_gpus --nnodes=$NUM_NODES --node_rank=$NODE_RANK --master_addr=$MASTER_NODE --master_port=$MASTER_PORT $CMD"
 
 
 if [ "$create_logfile" = "true" ] ; then
