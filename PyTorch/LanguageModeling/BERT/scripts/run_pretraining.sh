@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+set -x
 echo "Container nvidia build = " $NVIDIA_BUILD_ID
 train_batch_size=${1:-8192}
 learning_rate=${2:-"6e-3"}
@@ -34,12 +34,13 @@ learning_rate_phase2=${17:-"4e-3"}
 warmup_proportion_phase2=${18:-"0.128"}
 train_steps_phase2=${19:-1563}
 gradient_accumulation_steps_phase2=${20:-512}
-DATASET=hdf5_lower_case_1_seq_len_128_max_pred_20_masked_lm_prob_0.15_random_seed_12345_dupe_factor_5/wikicorpus_en # change this for other datasets
+export BERT_PREP_WORKING_DIR=${BERT_PREP_WORKING_DIR:-"/root/paddlejob/workspace/DeepLearningExamples/PyTorch/LanguageModeling/BERT/data"} 
+DATASET=hdf5_lower_case_1_seq_len_128_max_pred_20_masked_lm_prob_0.15_random_seed_12345_dupe_factor_5/wikicorpus_en/training # change this for other datasets
 DATA_DIR_PHASE1=${21:-$BERT_PREP_WORKING_DIR/${DATASET}/}
-BERT_CONFIG=bert_config.json
+BERT_CONFIG=bert_base_config.json
 DATASET2=hdf5_lower_case_1_seq_len_512_max_pred_80_masked_lm_prob_0.15_random_seed_12345_dupe_factor_5/wikicorpus_en # change this for other datasets
 DATA_DIR_PHASE2=${22:-$BERT_PREP_WORKING_DIR/${DATASET2}/}
-CODEDIR=${23:-"/workspace/bert"}
+CODEDIR=${23:-"/root/paddlejob/workspace/DeepLearningExamples/PyTorch/LanguageModeling/BERT"}
 init_checkpoint=${24:-"None"}
 RESULTS_DIR=$CODEDIR/results
 CHECKPOINTS_DIR=$RESULTS_DIR/checkpoints
@@ -107,7 +108,7 @@ CMD=" $CODEDIR/run_pretraining.py"
 CMD+=" --input_dir=$DATA_DIR_PHASE1"
 CMD+=" --output_dir=$CHECKPOINTS_DIR"
 CMD+=" --config_file=$BERT_CONFIG"
-CMD+=" --bert_model=bert-large-uncased"
+CMD+=" --bert_model=bert-base-uncased"
 CMD+=" --train_batch_size=$train_batch_size"
 CMD+=" --max_seq_length=128"
 CMD+=" --max_predictions_per_seq=20"
@@ -125,7 +126,12 @@ CMD+=" $INIT_CHECKPOINT"
 CMD+=" --do_train"
 CMD+=" --json-summary ${RESULTS_DIR}/dllogger.json "
 
-CMD="python3 -m torch.distributed.launch --nproc_per_node=$num_gpus $CMD"
+MASTER_ADDR=`echo $PADDLE_TRAINER_ENDPOINTS | awk -F',' '{print $1}' | awk -F':' '{print $1}'`
+MASTER_PORT=`echo $PADDLE_TRAINER_ENDPOINTS | awk -F',' '{print $1}' | awk -F':' '{print $2}'`
+NUM_NODES=`echo $PADDLE_TRAINER_ENDPOINTS | tr ',' '\n' | wc -l`
+NODE_RANK=$PADDLE_TRAINER_ID
+
+CMD="python3 -m torch.distributed.launch --nproc_per_node=$num_gpus --nnodes=$NUM_NODES --node_rank=$NODE_RANK --master_addr $MASTER_ADDR --master_port $MASTER_PORT $CMD"
 
 
 if [ "$create_logfile" = "true" ] ; then
@@ -148,6 +154,8 @@ fi
 set +x
 
 echo "finished pretraining"
+
+exit 0 # skip phase2 
 
 #Start Phase2
 
